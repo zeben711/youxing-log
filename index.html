@@ -2,8 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#09090b">
+<link rel="preload" as="image" href="galaxy-opening.jpg" fetchpriority="high">
 <title>游星日志 · 星系入口预览</title>
 <style>
 :root {
@@ -225,6 +226,8 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
   z-index: 4;
   top: clamp(24px, 6svh, 62px);
   left: clamp(24px, 5vw, 78px);
+  top: max(clamp(24px, 6svh, 62px), env(safe-area-inset-top));
+  left: max(clamp(24px, 5vw, 78px), calc(env(safe-area-inset-left) + 12px));
   padding: 0;
   border: 0;
   background: none;
@@ -398,13 +401,40 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 .stop[aria-current="true"]:not(:focus-visible)::before { opacity: 0; }
 .stop[aria-current="true"], .stop:hover { color: var(--ink); }
 .stop:focus-visible::before { background: #fff; }
+.overview-label { display: none; }
+@media (pointer: coarse) {
+  .brand, .enter, .card, .stop { touch-action: manipulation; }
+  .brand { min-height: 44px; }
+}
 @media (max-width: 650px) and (orientation: portrait) {
-  .sky .nebula { --nebula-lift: -50%; height: auto; aspect-ratio: 16 / 9; top: 50%; }
+  .sky .nebula {
+    --nebula-lift: -50%;
+    left: -10%;
+    top: 50%;
+    width: 120%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+  }
   .sky :is(.system, .orbit-underlay) { width: 129vw; }
-  .cards { --card-gap: 22px; --cards-lift: 6svh; width: min(69vw, 430px); grid-template-columns: 1fr; }
+  .brand { top: max(12px, env(safe-area-inset-top)); left: 6vw; }
+  .enter-label { min-height: 44px; padding-inline: 22px; border: 1px solid #ffffff40; border-radius: 24px; }
+  .cards {
+    --card-gap: 16px;
+    --cards-lift: 4svh;
+    width: min(88vw, 430px, calc(80svh - 155px - env(safe-area-inset-bottom) - env(safe-area-inset-top)));
+    grid-template-columns: 1fr;
+  }
   .card:first-child, .card:last-child { grid-column: 1; }
   .card:last-child { grid-row: 2; }
-  .film-view video { width: 93vw; }
+  .film-view video { width: 96vw; }
+  .orbit { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .stop { width: min(22vw, 84px); height: 66px; }
+  .overview-label { display: block; }
+}
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  .orbit { padding-bottom: calc(58px + env(safe-area-inset-bottom)); }
+  .stop { height: 52px; }
+  .overview-label { display: block; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; transition-delay: 0s !important; }
@@ -508,7 +538,7 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
   </section>
   <nav class="orbit" aria-label="作品导航轨道" inert>
     <button class="stop" type="button" data-target="film" aria-current="false">短片</button>
-    <button class="stop" type="button" data-target="overview" aria-current="true" aria-label="总览"></button>
+    <button class="stop" type="button" data-target="overview" aria-current="true" aria-label="总览"><span class="overview-label">总览</span></button>
     <button class="stop" type="button" data-target="grade" aria-current="false">调色</button>
   </nav>
 </main>
@@ -545,12 +575,14 @@ const warp = document.querySelector('.warp-layer');
 const dust = document.querySelector('.dust');
 const {setActive: setStarMotion, setAccents: setStarAccents} = createStarField(dust);
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const phone = matchMedia('(pointer: coarse) and (max-width: 650px), (pointer: coarse) and (max-height: 500px)').matches;
+const introPace = phone ? .8 : 1;
 const preview = new URLSearchParams(location.search).get('preview');
 const useDepthPass = preview === 'depth-flight';
 const motionProfile = preview === 'steady-pass' || preview === 'curved-zoom' || preview === 'crash-zoom'
   ? zoomProfiles.push
   : preview === 'independent-zoom' || preview === 'pixel-zoom' ? zoomProfiles.pull : zoomProfiles.approach;
-const approachGlideDuration = 1620;
+const approachGlideDuration = 1620 * introPace;
 const sections = {
   film: .23,
   overview: .50,
@@ -595,7 +627,8 @@ let zoomPass;
 
 function zoomViewport() {
   const {width, height} = warp.getBoundingClientRect();
-  const resolution = Math.min(1, 768 / width, Math.sqrt(400_000 / (width * height)));
+  const areaLimit = phone ? 160_000 : 400_000;
+  const resolution = Math.min(1, 768 / width, Math.sqrt(areaLimit / (width * height)));
   const canvasWidth = Math.max(1, Math.round(width * resolution));
   const canvasHeight = Math.max(1, Math.round(height * resolution));
   if (warp.width !== canvasWidth) warp.width = canvasWidth;
@@ -682,10 +715,11 @@ function jumpFromNebula(onArrival) {
   paint(sampleZoom(0, motionProfile));
   const start = performance.now();
   // Fit the same orbit while it is still opening, then keep that camera clock through the handoff.
-  const glideStart = start + motionProfile.duration - 420;
+  const duration = motionProfile.duration * introPace;
+  const glideStart = start + duration - 420 * introPace;
   if (connected) afterJump = () => onArrival(glideStart);
   function move(now) {
-    const t = Math.min(1, (now - start) / motionProfile.duration);
+    const t = Math.min(1, (now - start) / duration);
     const progress = connected && now > glideStart ? cameraEase((now - glideStart) / approachGlideDuration, true) : undefined;
     paint(sampleZoom(t, motionProfile), progress);
     if (t < 1) jumpFrame = requestAnimationFrame(move);
@@ -743,7 +777,8 @@ function measureFit() {
   const {width, height} = stage.getBoundingClientRect();
   const pixelScale = Number.parseFloat(getComputedStyle(system).width) / system.viewBox.baseVal.width;
   const major = Math.max(width * .88, height * .64);
-  const bottom = height - Math.max(52, height * .11);
+  const railClearance = Number.parseFloat(getComputedStyle(orbit).paddingBottom);
+  const bottom = height - Math.max(52, height * .11, railClearance);
   const minor = bottom - height / 2;
   const span = Math.min(width * .94, 1420);
   const radius = navigationPlane.radius;
@@ -1102,6 +1137,29 @@ async function loadArchive() {
       @keyframes pendant-catch { from { opacity: 0; } to { opacity: 1; } }
       .planet-pendant:is(:hover, :focus-visible):not([data-pulling]) .planet-body { outline: none; box-shadow: none; background: #e5c2ac; }
       @media (max-width: 690px) { .embedded-orbit .project { top: 60%; } }
+      @media (max-width: 650px) and (orientation: portrait) {
+        .embedded-orbit .project { top: calc(48% + 21vw); }
+        .embedded-orbit h1 { max-width: 80vw; font-size: clamp(23px, 6vw, 30px); }
+        .embedded-orbit footer { bottom: max(126px, 20vh); }
+        .embedded-orbit .key { width: 46px; height: 46px; touch-action: manipulation; }
+        .embedded-orbit .overview {
+          padding: calc(clamp(56px, 9vh, 84px) + 112px) 16px max(100px, 19vh);
+          scrollbar-gutter: auto;
+        }
+        .planet-pendant { height: 108px; }
+        .planet-pendant::after {
+          content: "平铺";
+          position: absolute;
+          top: 83px;
+          inset-inline: 0;
+          font-size: 12px;
+          text-align: center;
+          text-shadow: 0 1px 4px #000;
+          transform: translateY(var(--pull));
+        }
+        .planet-pendant[aria-expanded="true"]::after { content: "收起"; }
+        .planet-pendant[data-docking]::after { opacity: 0; }
+      }
     `;
     page.head.append(theme);
     const contents = page.querySelector('#plastic-arc');
@@ -1267,7 +1325,7 @@ function updatePlayback() {
     return;
   }
   if (video.paused) video.play().catch(() => {});
-  if (!visible && !nebulaWatch && !nebulaRecovery) {
+  if (!phone && !visible && !nebulaWatch && !nebulaRecovery) {
     const time = video.currentTime;
     nebulaWatch = setTimeout(() => {
       nebulaWatch = 0;
