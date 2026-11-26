@@ -1,0 +1,1288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#09090b">
+<title>游星日志 · 星系入口预览</title>
+<style>
+:root {
+  color-scheme: dark;
+  --ink: #fff;
+  --orbit-ink: #b5c9e0;
+  --orbit-width: 1.3px;
+  --nebula-warm: #deb49c;
+  --nebula-exposure: 1.18;
+  --pendant-ink: #d5ad93;
+  --ease: cubic-bezier(.22,.74,.22,1);
+  --reveal-ease: cubic-bezier(.48,0,.22,1);
+  font-family: "Songti SC", "Noto Serif CJK SC", serif;
+  background: #09090b;
+  color: var(--ink);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, a { color: inherit; font: inherit; -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: none; color: #fff; }
+[hidden] { display: none !important; }
+.stage { position: relative; display: grid; place-items: center; min-height: 100svh; isolation: isolate; overflow: clip; }
+.sky { display: contents; pointer-events: none; }
+.sky > * { z-index: -2; }
+.entered .sky .system { z-index: 2; }
+.sky img, .sky video, .sky svg, .shade, .dust, .warp-layer, .depth-flight { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sky img { object-fit: cover; }
+.dust {
+  opacity: .25;
+  transform: translate3d(calc(4.7% * var(--camera-travel, 0)), calc(-4.8% * var(--camera-travel, 0)), 0)
+             scale(calc(1 + .12 * var(--camera-travel, 0)));
+  transition: opacity .85s ease;
+}
+.galaxy-ready:not(.jumping) .dust { opacity: 1; }
+.entered:not(.arriving) .dust { opacity: .78; }
+.entered:is([data-selection="film"], [data-selection="grade"]) .dust { opacity: .45; }
+.galaxy-ready .depth-flight {
+  transform: translate3d(calc(2.2% * var(--camera-travel, 0)), calc(-2.1% * var(--camera-travel, 0)), 0)
+             scale(calc(var(--field-scale, 1.22) * var(--approach-scale, 1)));
+}
+.deep-sky {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.12);
+  transition: opacity 1.4s ease .16s;
+}
+.sky .nebula {
+  object-fit: cover;
+  opacity: 1;
+  transform: translateY(var(--nebula-lift, 0%)) scale(var(--nebula-zoom, 1.015))
+             rotate(var(--nebula-roll, 0rad))
+             scaleX(var(--nebula-wide, 1)) scaleY(var(--nebula-tall, 1));
+  transform-origin: center 48%;
+  mask-image: linear-gradient(transparent 10%, #000 18%, #000 92%, transparent);
+  transition: transform 1.68s var(--ease), opacity .92s ease .20s;
+}
+.sky .nebula, .warp-layer { filter: brightness(var(--nebula-exposure)); }
+.sky :is(.system, .orbit-underlay) {
+  width: min(102vw, 1540px);
+  height: auto;
+  aspect-ratio: 16 / 9;
+  top: 50%;
+  left: 50%;
+  inset-inline-end: auto;
+  opacity: 0;
+  overflow: visible;
+  transform: translate(-50%, -50%) scale(var(--system-zoom,.73));
+  transition: transform 1.32s cubic-bezier(.34,.04,.22,1), opacity .86s ease .3s;
+}
+.sky .orbit-underlay { --system-zoom: 1; z-index: 0; transition: opacity .30s ease; }
+.entered:not(.arriving) .sky .orbit-underlay { opacity: .19; }
+.entered:not(.arriving) .navigation-orbit { clip-path: url(#orbit-front); }
+.jumping .depth-flight, .jumping .system, .arriving .system {
+  will-change: transform, opacity;
+}
+.planet-orbit { fill: none; stroke: #8298b3; stroke-width: .7px; }
+[data-planet="grade"] .planet-orbit { stroke: #95aac3; stroke-width: .9px; }
+.planet-orbit .far-side { opacity: .20; }
+.planet-orbit .near-side { opacity: .54; stroke-dasharray: 50 50; stroke-dashoffset: 50; }
+.system :is(.planet, .planet-orbit) { transition: opacity .8s ease; }
+.system .planet[data-flight="film"] { fill: #60738c; opacity: calc(.78 * var(--planet-reveal, 1)); }
+.system .planet[data-flight="grade"] { fill: #8299b5; opacity: calc(.86 * var(--planet-reveal, 1)); }
+.navigation-cluster { opacity: var(--planet-reveal, 1); }
+.entered .system .planet-orbit,
+.entered .system .planet[data-flight] { opacity: 0; transition-delay: .38s; }
+.system-core { opacity: calc(.83 * var(--sun-reveal, 1) * (1 - var(--work-reveal, 0))); }
+.navigation-track, .navigation-sheen, .navigation-rear-track {
+  fill: none;
+  stroke: var(--orbit-ink);
+  stroke-width: var(--orbit-width);
+  vector-effect: non-scaling-stroke;
+}
+.navigation-track, .navigation-sheen { stroke: url(#rail-ink); }
+.navigation-track {
+  opacity: .7;
+  transition: opacity .85s ease .20s;
+}
+.entered .navigation-track { opacity: .9; }
+.navigation-sheen {
+  stroke-dasharray: 8 92;
+  opacity: .16;
+}
+.galaxy-ready .navigation-sheen {
+  animation: orbit-sheen 19s linear infinite;
+}
+@keyframes orbit-sheen {
+  0% { stroke-dashoffset: 0; }
+  45%, 58% { opacity: .28; }
+  100% { stroke-dashoffset: -100; }
+}
+.rail-ink { stop-color: var(--orbit-ink); }
+.rail-rear { transition: stop-opacity .8s ease .35s; }
+.entered .rail-rear { stop-opacity: 0; }
+.navigation-disc { fill: #c6d7e9; }
+.navigation-meridian {
+  fill: none;
+  stroke: #587c9e;
+  stroke-width: 1.05px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  opacity: .45;
+  transform-origin: 0 50%;
+  transform-box: fill-box;
+}
+.navigation-meridian + .navigation-meridian { opacity: 0; }
+.galaxy-ready .navigation-meridian { animation: planet-turn 5.2s -1.05s infinite linear; }
+.galaxy-ready .navigation-meridian + .navigation-meridian { animation-delay: -3.65s; }
+@keyframes planet-turn {
+  0%, 100% { transform: scaleX(-1); opacity: 0; }
+  12.5% { transform: scaleX(-.7); opacity: .56; }
+  25% { transform: scaleX(0); opacity: .72; }
+  37.5% { transform: scaleX(.7); opacity: .56; }
+  50%, 99% { transform: scaleX(1); opacity: 0; }
+}
+.moon-track { fill: none; stroke: #8da6c3; stroke-width: .65px; opacity: .34; }
+.moon-track:last-child { stroke: var(--pendant-ink); stroke-width: .8px; opacity: .5; transition: opacity .42s ease; }
+.navigation-cluster:has(.departed) .moon-track:last-child { opacity: .2; }
+.navigation-moon { pointer-events: none; }
+.navigation-moon[data-pendant-moon] { fill: var(--pendant-ink); }
+.navigation-moon.departed { visibility: hidden; }
+.galaxy-ready .nebula { --nebula-zoom: 1.65; opacity: 0; }
+.galaxy-ready .deep-sky { opacity: 1; animation: deep-drift 20s ease-in-out infinite alternate; }
+.entered:not(.arriving) .deep-sky { opacity: .76; }
+.entered:is([data-selection="film"], [data-selection="grade"]) .deep-sky { opacity: .46; }
+@keyframes deep-drift {
+  from { transform: translate3d(-1.45%, .8%, 0) scale(1.12); }
+  to { transform: translate3d(1.45%, -.8%, 0) scale(1.12); }
+}
+.galaxy-ready .system { --system-zoom: 1; opacity: 1; }
+.warp-layer {
+  opacity: 0;
+  will-change: opacity;
+}
+.jumping.warp-visible .warp-layer { opacity: 1; }
+.jumping .sky :is(.nebula, .system, .deep-sky, .dust, .system-core) { transition: none; }
+.jumping .deep-sky { opacity: 0; }
+.jumping .depth-flight { transition: none; }
+.jumping .enter-label { opacity: 0; }
+.joining .system-orbits .planet { transition: none; }
+.joining .planet-orbit .far-side {
+  opacity: calc(.20 + .49 * (1 - var(--trace-settle, 0)));
+  stroke-dasharray: var(--outer-trace, 0) 100;
+}
+.joining [data-planet="grade"] .planet-orbit .far-side { stroke-dasharray: var(--middle-trace, 0) 100; }
+.joining .planet-orbit .near-side { opacity: calc(.54 * var(--trace-settle, 0)); }
+.joining .navigation-track {
+  stroke-dasharray: var(--inner-trace, 0) 100;
+  opacity: calc(.70 + .18 * (1 - var(--trace-settle, 0)));
+  transition: none;
+}
+.joining .navigation-sheen {
+  animation: none;
+  stroke: #cadbf1;
+  stroke-dasharray: 7 100;
+  stroke-dashoffset: calc(7 - var(--inner-trace, 0));
+  opacity: var(--trace-highlight, 0);
+}
+.depth-passing .nebula {
+  animation: front-pass 1.58s cubic-bezier(.35,.04,.61,.80) both,
+             front-dissolve 1.58s linear both;
+}
+.depth-passing .depth-flight { animation: distant-pass 1.58s var(--ease) both; }
+.depth-passing .deep-sky { opacity: 1; }
+.depth-passing .system {
+  animation: orbit-arrival 1.58s cubic-bezier(.16,.83,.24,1) both,
+             orbit-reveal 1.58s linear both;
+}
+@keyframes front-pass {
+  from { transform: translateY(var(--nebula-lift, 0%)) scale(1.015); }
+  to { transform: translateY(var(--nebula-lift, 0%)) translate3d(-15vw, 9svh, 0) scale(2.42); }
+}
+@keyframes front-dissolve {
+  0%, 28% { opacity: 1; filter: brightness(var(--nebula-exposure)) blur(0); }
+  57% { opacity: .87; filter: brightness(var(--nebula-exposure)) blur(1px); }
+  83%, 100% { opacity: 0; filter: brightness(var(--nebula-exposure)) blur(4px); }
+}
+@keyframes distant-pass {
+  0%, 14% { opacity: 0; transform: translate3d(2.5vw,-1.8svh,0) scale(1.28); }
+  100% { opacity: 1; transform: scale(1.22); }
+}
+@keyframes orbit-arrival {
+  from { transform: translate(-50%,-50%) translate3d(6.6vw,-4.7svh,0) rotateZ(7deg) scale(.54); }
+  to { transform: translate(-50%,-50%) scale(1); }
+}
+@keyframes orbit-reveal {
+  0%, 38% { opacity: 0; }
+  73% { opacity: .67; }
+  100% { opacity: 1; }
+}
+.shade {
+  background: radial-gradient(ellipse at 50% 48%, transparent 26%, #07080b42 66%, #07080bba);
+  opacity: .65;
+  transition: opacity 1.3s var(--ease);
+}
+.brand {
+  position: absolute;
+  z-index: 4;
+  top: clamp(24px, 6svh, 62px);
+  left: clamp(24px, 5vw, 78px);
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: clamp(19px, 2vw, 30px);
+  font-weight: 600;
+  letter-spacing: .16em;
+}
+.enter {
+  position: absolute;
+  z-index: 2;
+  top: 20%;
+  inset-inline: 12%;
+  bottom: 15%;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  opacity: 1;
+  transition: opacity .45s ease;
+}
+.enter-label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--ink);
+  font-size: 15px;
+  letter-spacing: .12em;
+  transition: transform .45s var(--ease), color .45s var(--ease), opacity .28s ease;
+}
+.enter:hover .enter-label, .enter:focus-visible .enter-label { transform: translateY(-5px); color: var(--ink); }
+.enter-label::before { content: ""; width: 5px; height: 5px; border: 1px solid #fff; transform: rotate(45deg); }
+.cards {
+  --card-gap: clamp(22px, 5vw, 86px);
+  --cards-lift: 5svh;
+  position: relative;
+  z-index: 2;
+  width: min(78vw, 1080px);
+  margin-top: calc(-1 * var(--cards-lift));
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  align-items: center;
+  gap: var(--card-gap);
+}
+.card {
+  position: relative;
+  display: grid;
+  align-items: end;
+  text-align: left;
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  padding: clamp(16px, 3vw, 44px);
+  border: 1px solid #ffffff4a;
+  background: #0d0e11;
+  overflow: clip;
+  box-shadow: 0 22px 70px #02030a66;
+  opacity: 0;
+  transform: translateY(14px) scale(.985);
+  transition: transform .6s var(--ease), opacity .52s ease, border-color .35s ease;
+}
+.card:first-child { grid-column: 1; grid-row: 1; }
+.card:last-child { grid-column: 2; grid-row: 1; }
+.card img, .card::after { position: absolute; inset: 0; width: 100%; height: 100%; }
+.card img { object-fit: cover; filter: saturate(.88); transition: transform .65s var(--ease); }
+.card::after { content: ""; background: linear-gradient(0deg, #08090bed, #08090b30 63%, transparent); }
+.card[data-target="film"] img { object-fit: contain; filter: none; }
+.card[data-target="film"]::after { background: linear-gradient(0deg, #08090b99, transparent 38%); }
+.card-title {
+  position: relative;
+  z-index: 1;
+  font-size: clamp(24px, 3.5vw, 56px);
+  letter-spacing: .06em;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity .38s ease, transform .45s var(--ease);
+}
+.card:hover { border-color: #ffffffa8; }
+.card:is(:hover, :focus-visible) img { transform: scale(1.035); }
+.entered .enter { opacity: 0; pointer-events: none; }
+.entered .shade { opacity: 1; }
+:is(.joining, .entered.arriving[data-selection="overview"]) .cards {
+  transform-origin: 50% calc(50% + var(--cards-lift) / 2);
+  transform: scale(var(--work-reveal, 0));
+}
+:is(.joining, .entered.arriving[data-selection="overview"]) .card {
+  opacity: var(--work-reveal, 0);
+  transform: none;
+  transition: none;
+}
+:is(.joining, .entered.arriving[data-selection="overview"]) .card-title {
+  opacity: clamp(0, (var(--work-reveal, 0) - .65) / .35, 1);
+  transform: none;
+  transition: none;
+}
+.entered:not(.arriving)[data-selection="overview"] :is(.card, .card-title) { opacity: 1; transform: none; }
+.entered:not(.arriving)[data-selection="overview"] .card {
+  transition: transform .72s var(--reveal-ease), opacity .72s var(--reveal-ease), border-color .35s ease;
+}
+.entered:not(.arriving)[data-selection="overview"] .card-title {
+  transition: opacity .54s var(--reveal-ease) .1s, transform .54s var(--reveal-ease) .1s;
+}
+.work-view {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .48s ease, visibility .48s;
+}
+.entered[data-selection="film"] .film-view,
+.entered[data-selection="grade"] .grade-view {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .74s var(--reveal-ease) .06s, visibility 0s;
+}
+.film-view video {
+  display: block;
+  width: min(84vw, 1030px, 114svh);
+  aspect-ratio: 16 / 9;
+  background: #08080a;
+  margin-top: -7svh;
+}
+.grade-view iframe {
+  width: 100%; height: 100%; border: 0; grid-area: 1 / 1;
+  opacity: 0; transition: opacity .42s var(--reveal-ease);
+}
+.work-view, .grade-view iframe { will-change: opacity; }
+.grade-view.ready iframe { opacity: 1; }
+.archive-error {
+  grid-area: 1 / 1;
+  z-index: 1;
+  border: 0;
+  border-bottom: 1px solid;
+  padding: 6px 2px;
+  background: #0d0c10;
+  color: var(--ink);
+}
+.orbit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, visibility .25s;
+}
+.entered:not(.arriving) .orbit { visibility: visible; opacity: 1; transition: opacity .32s ease; }
+.stop {
+  position: absolute;
+  pointer-events: auto;
+  display: grid;
+  width: 56px;
+  height: 64px;
+  grid-template-rows: 17px auto;
+  place-items: center;
+  left: 0;
+  top: 0;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: .06em;
+}
+.stop::before { content: ""; align-self: center; width: 5px; height: 5px; border-radius: 50%; background: #8195af; }
+.stop[aria-current="true"]:not(:focus-visible)::before { opacity: 0; }
+.stop[aria-current="true"], .stop:hover { color: var(--ink); }
+.stop:focus-visible::before { background: #fff; }
+@media (max-width: 650px) and (orientation: portrait) {
+  .sky .nebula { --nebula-lift: -50%; height: auto; aspect-ratio: 16 / 9; top: 50%; }
+  .sky :is(.system, .orbit-underlay) { width: 129vw; }
+  .cards { --card-gap: 22px; --cards-lift: 6svh; width: min(69vw, 430px); grid-template-columns: 1fr; }
+  .card:first-child, .card:last-child { grid-column: 1; }
+  .card:last-child { grid-row: 2; }
+  .film-view video { width: 93vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; transition-delay: 0s !important; }
+  .galaxy-ready :is(.deep-sky, .navigation-sheen, .navigation-meridian) { animation: none; }
+}
+</style>
+</head>
+<body>
+<main class="stage" id="stage" data-selection="overview">
+  <div class="sky" aria-hidden="true">
+    <div class="depth-flight"><img class="deep-sky" src="entry-deep-sky.jpg" alt="" decoding="async"></div>
+    <video class="nebula" src="galaxy-core-flow-preview.mp4" poster="galaxy-opening.jpg"
+           autoplay loop muted playsinline preload="auto"></video>
+    <canvas class="dust"></canvas>
+    <svg class="system" viewBox="-600 -337.5 1200 675">
+      <defs>
+        <path id="outer-path" pathLength="100" vector-effect="non-scaling-stroke" d="M -443 0 A 443 103 0 1 1 443 0 A 443 103 0 1 1 -443 0"/>
+        <path id="middle-path" pathLength="100" vector-effect="non-scaling-stroke" d="M -375 0 A 375 80 0 1 1 375 0 A 375 80 0 1 1 -375 0"/>
+        <path id="inner-path" pathLength="100" vector-effect="non-scaling-stroke" d="M -284 0 A 284 59 0 1 1 284 0 A 284 59 0 1 1 -284 0"/>
+        <linearGradient id="rail-ink" x1="0" y1="0" x2="0" y2="1">
+          <stop class="rail-ink rail-rear" offset="0%" stop-opacity=".38"/>
+          <stop class="rail-ink rail-rear" offset="54%" stop-opacity=".55"/>
+          <stop class="rail-ink" offset="84%"/>
+        </linearGradient>
+        <clipPath id="navigation-face"><circle r="8"/></clipPath>
+        <clipPath id="orbit-front"><rect x="-300" y="0" width="600" height="72"/></clipPath>
+        <clipPath id="orbit-back"><rect x="-300" y="-72" width="600" height="72"/></clipPath>
+      </defs>
+      <circle class="system-core" r="22" fill="var(--nebula-warm)"/>
+      <g class="system-orbits">
+        <g data-orbit-roll="-17" data-planet="film" data-phase="-2.64" data-period="44" transform="rotate(-17)">
+          <g class="planet-orbit">
+            <use href="#outer-path" class="far-side"/>
+            <use href="#outer-path" class="near-side"/>
+          </g>
+        </g>
+        <g data-orbit-roll="-7" data-planet="grade" data-phase=".28" data-period="37" transform="rotate(-7)">
+          <g class="planet-orbit">
+            <use href="#middle-path" class="far-side"/>
+            <use href="#middle-path" class="near-side"/>
+          </g>
+        </g>
+        <g class="rail-visuals">
+          <g class="navigation-orbit" data-orbit-roll="-2" transform="rotate(-2)">
+            <use href="#inner-path" class="navigation-track"/>
+            <use href="#inner-path" class="navigation-sheen"/>
+          </g>
+          <g class="navigation-cluster">
+            <g class="moon-tracks">
+              <ellipse class="moon-track" vector-effect="non-scaling-stroke"/>
+              <ellipse class="moon-track" vector-effect="non-scaling-stroke"/>
+              <ellipse class="moon-track" vector-effect="non-scaling-stroke"/>
+            </g>
+            <g class="navigation-body">
+              <circle class="navigation-disc" r="8"/>
+              <g clip-path="url(#navigation-face)">
+                <g transform="rotate(-23)">
+                  <path class="navigation-meridian" d="M 0 -7.8 A 7.8 7.8 0 0 1 0 7.8"/>
+                  <path class="navigation-meridian" d="M 0 -7.8 A 7.8 7.8 0 0 1 0 7.8"/>
+                </g>
+              </g>
+            </g>
+            <circle class="navigation-moon" fill="#8399b3"/>
+            <circle class="navigation-moon" fill="#a1b5d0"/>
+            <circle class="navigation-moon" data-pendant-moon/>
+          </g>
+        </g>
+        <circle class="planet" data-flight="film" r="12"/>
+        <circle class="planet" data-flight="grade" r="20"/>
+      </g>
+    </svg>
+    <svg class="orbit-underlay" viewBox="-600 -337.5 1200 675">
+      <g class="rear-rail">
+        <g class="rear-projection" clip-path="url(#orbit-back)">
+          <use href="#inner-path" class="navigation-rear-track"/>
+        </g>
+      </g>
+    </svg>
+    <canvas class="warp-layer"></canvas>
+    <div class="shade"></div>
+  </div>
+  <button class="brand" type="button">游星日志</button>
+  <button class="enter" type="button" aria-label="进入星云"><span class="enter-label">进入</span></button>
+  <div class="cards" inert>
+    <button class="card" data-target="film" type="button">
+      <img src="游星日志作品集/media/nian-cover.jpg" alt="">
+      <span class="card-title">短片</span>
+    </button>
+    <button class="card" data-target="grade" type="button">
+      <img src="游星日志作品集/media/grades/14.jpg" alt="">
+      <span class="card-title">调色</span>
+    </button>
+  </div>
+  <section class="work-view film-view" aria-label="回家吃饭" inert>
+    <video controls playsinline preload="none" aria-label="播放《回家吃饭》"
+           poster="游星日志作品集/media/nian-cover.jpg" src="游星日志作品集/media/home.mp4?v=20261126-final"></video>
+  </section>
+  <section class="work-view grade-view" aria-label="调色" inert>
+    <iframe title="调色作品"></iframe>
+    <button class="archive-error" type="button" hidden>重新加载</button>
+  </section>
+  <nav class="orbit" aria-label="作品导航轨道" inert>
+    <button class="stop" type="button" data-target="film" aria-current="false">短片</button>
+    <button class="stop" type="button" data-target="overview" aria-current="true" aria-label="总览"></button>
+    <button class="stop" type="button" data-target="grade" aria-current="false">调色</button>
+  </nav>
+</main>
+<script type="module">
+import {createZoomPass, sampleZoom, zoomProfiles} from './zoom-transition.js?v=live-nebula';
+import {createStarField} from './star-field.js?v=orbital-focus';
+
+const stage = document.querySelector('#stage');
+const enter = document.querySelector('.enter');
+const cards = document.querySelector('.cards');
+const orbit = document.querySelector('.orbit');
+const film = document.querySelector('.film-view');
+const player = film.querySelector('video');
+const grade = document.querySelector('.grade-view');
+const archive = grade.querySelector('iframe');
+const archiveError = grade.querySelector('.archive-error');
+const stops = [...orbit.querySelectorAll('.stop')];
+const video = document.querySelector('video');
+const openingPoster = new Image();
+openingPoster.src = video.poster;
+const system = document.querySelector('.system');
+const rail = system.querySelector('.navigation-orbit');
+const railVisuals = system.querySelector('.rail-visuals');
+const rearRail = document.querySelector('.rear-rail');
+const rearProjection = rearRail.querySelector('.rear-projection');
+const railCluster = system.querySelector('.navigation-cluster');
+const navigationBody = railCluster.querySelector('.navigation-body');
+const sun = system.querySelector('.system-core');
+const systemOrbits = system.querySelector('.system-orbits');
+const pendantMoon = railCluster.querySelector('[data-pendant-moon]');
+const deepSky = document.querySelector('.deep-sky');
+const depthFlight = deepSky.parentElement;
+const warp = document.querySelector('.warp-layer');
+const dust = document.querySelector('.dust');
+const {setActive: setStarMotion, setAccents: setStarAccents} = createStarField(dust);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const preview = new URLSearchParams(location.search).get('preview');
+const useDepthPass = preview === 'depth-flight';
+const motionProfile = preview === 'steady-pass' || preview === 'curved-zoom' || preview === 'crash-zoom'
+  ? zoomProfiles.push
+  : preview === 'independent-zoom' || preview === 'pixel-zoom' ? zoomProfiles.pull : zoomProfiles.approach;
+const approachGlideDuration = 1620;
+const sections = {
+  film: .23,
+  overview: .50,
+  grade: .77,
+};
+
+function updateStarMotion() {
+  setStarMotion(!document.hidden && !reduced.matches && stage.classList.contains('galaxy-ready') &&
+    !stage.classList.contains('jumping'));
+}
+document.addEventListener('visibilitychange', updatePlayback);
+let jumpFrame = 0;
+let afterJump;
+function finishJump() {
+  cancelAnimationFrame(jumpFrame);
+  if (!stage.classList.contains('jumping')) return;
+  video.style.removeProperty('--nebula-zoom');
+  video.style.removeProperty('--nebula-wide');
+  video.style.removeProperty('--nebula-tall');
+  video.style.removeProperty('--nebula-roll');
+  system.style.removeProperty('--system-zoom');
+  video.style.removeProperty('opacity');
+  video.style.removeProperty('filter');
+  system.style.removeProperty('opacity');
+  systemOrbits.removeAttribute('style');
+  systemOrbits.removeAttribute('transform');
+  sun.style.removeProperty('--sun-reveal');
+  deepSky.style.removeProperty('opacity');
+  depthFlight.style.removeProperty('transform');
+  depthFlight.style.removeProperty('--approach-scale');
+  dust.style.removeProperty('opacity');
+  warp.style.removeProperty('opacity');
+  stage.classList.remove('jumping', 'joining', 'warp-visible', 'depth-passing');
+  drawGalaxy(framing);
+  const next = afterJump;
+  afterJump = undefined;
+  if (next) next();
+  else updatePlayback();
+}
+
+let zoomPass;
+
+function zoomViewport() {
+  const {width, height} = warp.getBoundingClientRect();
+  const resolution = Math.min(1, 768 / width, Math.sqrt(400_000 / (width * height)));
+  const canvasWidth = Math.max(1, Math.round(width * resolution));
+  const canvasHeight = Math.max(1, Math.round(height * resolution));
+  if (warp.width !== canvasWidth) warp.width = canvasWidth;
+  if (warp.height !== canvasHeight) warp.height = canvasHeight;
+  return {
+    viewWidth: width, viewHeight: height,
+    sourceWidth: video.clientWidth, sourceHeight: video.clientHeight,
+    trailSpan: motionProfile.trailSpan,
+  };
+}
+
+function warmZoomPass() {
+  if (useDepthPass || reduced.matches || zoomPass !== undefined || stage.classList.contains('galaxy-ready')) return;
+  const source = video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA ? video : openingPoster;
+  if (source === openingPoster && !openingPoster.naturalWidth) return;
+  const viewport = zoomViewport();
+  zoomPass = createZoomPass(warp);
+  const draw = zoomPass?.(source, viewport);
+  draw?.({zoom: 2.1, blur: .42, stretch: .45, iris: motionProfile.travelEnd ? .35 : 0, roll: .12});
+}
+function scheduleZoomWarmup() {
+  if ('requestIdleCallback' in window) requestIdleCallback(warmZoomPass, {timeout: 650});
+  else setTimeout(warmZoomPass, 80);
+}
+if (openingPoster.complete) scheduleZoomWarmup();
+else openingPoster.addEventListener('load', scheduleZoomWarmup, {once: true});
+video.addEventListener('loadeddata', scheduleZoomWarmup, {once: true});
+
+function jumpFromNebula(onArrival) {
+  if (reduced.matches) {
+    onArrival();
+    return;
+  }
+  afterJump = onArrival;
+  if (useDepthPass) {
+    stage.classList.add('jumping', 'depth-passing');
+    return;
+  }
+
+  const source = video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA ? video : openingPoster;
+  const draw = zoomPass?.(source, zoomViewport());
+  const connected = Boolean(motionProfile.travelEnd);
+  function paint(frame, cameraProgress) {
+    const {zoom, blur, stretch, incoming, arrivalScale, fieldOpacity, fieldScale} = frame;
+    if (draw) {
+      if (incoming < 1) draw(frame);
+      warp.style.opacity = 1 - incoming;
+    } else {
+      video.style.setProperty('--nebula-zoom', zoom);
+      video.style.setProperty('--nebula-wide', 1 + .44 * stretch);
+      video.style.setProperty('--nebula-tall', 1 + .07 * stretch);
+      if (connected) video.style.setProperty('--nebula-roll', `${-frame.roll}rad`);
+      video.style.opacity = 1 - incoming;
+      video.style.filter = `brightness(calc(var(--nebula-exposure) * ${1 - .32 * blur}))${connected ? '' : ` blur(${blur * 5}px)`}`;
+      if (!connected) system.style.opacity = incoming;
+    }
+    if (connected) {
+      const {orbitOpening} = frame;
+      systemOrbits.style.opacity = frame.orbitOpacity;
+      systemOrbits.setAttribute('transform', `rotate(${-14 * (1 - orbitOpening)}) scale(1 ${.29 + .71 * orbitOpening})`);
+      systemOrbits.style.setProperty('--trace-settle', orbitOpening);
+      systemOrbits.style.setProperty('--inner-trace', frame.innerTrace);
+      const drawn = frame.innerTrace / 100;
+      systemOrbits.style.setProperty('--trace-highlight', 3.4 * drawn * (1 - drawn));
+      systemOrbits.style.setProperty('--middle-trace', frame.middleTrace);
+      systemOrbits.style.setProperty('--outer-trace', frame.outerTrace);
+      systemOrbits.style.setProperty('--planet-reveal', frame.planetOpacity);
+      sun.style.setProperty('--sun-reveal', frame.sunOpacity);
+      if (cameraProgress !== undefined) drawGalaxy(cameraProgress);
+      dust.style.opacity = .25 + .75 * fieldOpacity;
+      depthFlight.style.setProperty('--approach-scale', fieldScale);
+    } else {
+      depthFlight.style.transform = 'scale(' + fieldScale * 1.22 + ')';
+    }
+    system.style.setProperty('--system-zoom', arrivalScale);
+    deepSky.style.opacity = fieldOpacity;
+  }
+
+  video.style.opacity = draw ? '.001' : '1';
+  system.style.opacity = draw || connected ? '1' : '0';
+  stage.classList.add('jumping');
+  if (connected) stage.classList.add('joining');
+  if (draw) stage.classList.add('warp-visible');
+  paint(sampleZoom(0, motionProfile));
+  const start = performance.now();
+  // Fit the same orbit while it is still opening, then keep that camera clock through the handoff.
+  const glideStart = start + motionProfile.duration - 420;
+  if (connected) afterJump = () => onArrival(glideStart);
+  function move(now) {
+    const t = Math.min(1, (now - start) / motionProfile.duration);
+    const progress = connected && now > glideStart ? cameraEase((now - glideStart) / approachGlideDuration, true) : undefined;
+    paint(sampleZoom(t, motionProfile), progress);
+    if (t < 1) jumpFrame = requestAnimationFrame(move);
+    else finishJump();
+  }
+  jumpFrame = requestAnimationFrame(move);
+}
+
+system.addEventListener('animationend', event => {
+  if (event.animationName === 'orbit-arrival') finishJump();
+});
+
+let position = sections.overview;
+let animation = 0;
+let framing = 0;
+let frameRequest = 0;
+let orbitalFrame = 0;
+let orbitalTime = 0;
+let lastOrbitalFrame = 0;
+const telephoto = 1 / 6500;
+const orbitPlanes = [...system.querySelectorAll('[data-orbit-roll]')].map(group => {
+  const {width, height} = group.querySelector('use').getBBox();
+  const incline = Math.asin(height / width);
+  const body = group.dataset.planet && system.querySelector(`[data-flight="${group.dataset.planet}"]`);
+  return {
+    group, radius: width / 2, minorRadius: height / 2,
+    roll: Number(group.dataset.orbitRoll) * Math.PI / 180, incline,
+    body, bodyRadius: body?.r.baseVal.value,
+    phase: Number(group.dataset.phase), period: Number(group.dataset.period),
+  };
+});
+const navigationPlane = orbitPlanes.find(plane => plane.group === rail);
+const satellites = [...railCluster.querySelectorAll('.navigation-moon')];
+const satelliteTracks = [...railCluster.querySelectorAll('.moon-track')];
+const moonCycle = 14_000;
+const moonFlatness = .47;
+const dockDuration = 880;
+const moonPaths = [
+  {radius: 19, size: 2.1, tilt: -.44, phase: .12},
+  {radius: 28, size: 2.4, tilt: .32, phase: .12 + 1 / 3},
+  {radius: 38, size: 3, tilt: -.17, phase: .12 + 2 / 3},
+];
+let moonAnimations = [];
+let fitted;
+
+function railPoint(x) {
+  const u = x / navigationPlane.radius;
+  const q = fitted.depthRatio;
+  const u2 = u * u;
+  const sin = (u2 * q + Math.sqrt(1 - u2 * (1 - q * q))) / (1 + u2 * q * q);
+  return {cos: u * (1 - q * sin), sin};
+}
+
+function measureFit() {
+  const {width, height} = stage.getBoundingClientRect();
+  const pixelScale = Number.parseFloat(getComputedStyle(system).width) / system.viewBox.baseVal.width;
+  const major = Math.max(width * .88, height * .64);
+  const bottom = height - Math.max(52, height * .11);
+  const minor = bottom - height / 2;
+  const span = Math.min(width * .94, 1420);
+  const radius = navigationPlane.radius;
+  const depthRatio = Math.sqrt(1 - (radius * pixelScale / major) ** 2);
+  const finalIncline = Math.asin(minor * (1 - depthRatio) / (radius * pixelScale));
+  fitted = {
+    inverseDistance: depthRatio / (radius * Math.cos(finalIncline)),
+    pitch: navigationPlane.incline - finalIncline,
+    roll: -navigationPlane.roll, depthRatio, span, pixelScale,
+  };
+  const navigationDiameter = Math.max(16, Math.min(27, width * .021));
+  navigationBody.setAttribute('transform', `scale(${navigationDiameter / (16 * pixelScale)})`);
+  for (const stop of stops) {
+    const x = (sections[stop.dataset.target] - .5) * span;
+    const {sin} = railPoint(x / pixelScale);
+    const y = height / 2 + minor * (1 - depthRatio) * sin / (1 - depthRatio * sin);
+    stop.style.transform = `translate3d(${width / 2 + x}px,${y}px,0) translate(-50%,-8px)`;
+  }
+  drawGalaxy(framing);
+  placeSatellites();
+}
+
+function placeSatellites() {
+  const scale = fitted.pixelScale;
+  const elapsed = (moonAnimations[0]?.currentTime ?? 0) % moonCycle;
+  moonAnimations.forEach(animation => animation.cancel());
+  moonAnimations = [];
+  satellites.forEach((moon, index) => {
+    const path = moonPaths[index];
+    const {radius, size, tilt} = path;
+    const track = satelliteTracks[index];
+    track.setAttribute('rx', radius / scale);
+    track.setAttribute('ry', radius * moonFlatness / scale);
+    track.style.transform = `rotate(${tilt}rad)`;
+    const at = progress => {
+      const {x, y} = satellitePoint(path, progress);
+      return {transform: `rotate(${tilt}rad) translate(${x}px,${y}px)`};
+    };
+    moon.setAttribute('r', size / scale);
+    moon.style.transform = at(elapsed / moonCycle).transform;
+    if (!reduced.matches) {
+      const motion = moon.animate(Array.from({length: 33}, (_, step) => at(step / 32)), {duration: moonCycle, iterations: Infinity});
+      motion.currentTime = elapsed;
+      moonAnimations.push(motion);
+    }
+  });
+}
+
+function satellitePoint({radius, phase}, progress) {
+  const turn = (progress + phase) * 2 * Math.PI;
+  // Vary the speed within a turn while keeping the spacing from drifting between turns.
+  const angle = turn + .16 * Math.sin(turn);
+  const size = radius / fitted.pixelScale;
+  return {x: Math.cos(angle) * size, y: Math.sin(angle) * size * moonFlatness};
+}
+
+function drawGalaxy(progress) {
+  framing = progress;
+  // Focal length falls in proportion to camera distance, so the center keeps its magnification.
+  const inverseDistance = telephoto + (fitted.inverseDistance - telephoto) * progress;
+  const drift = orbitalTime * 2 * Math.PI / 25;
+  const idle = (1 - progress) * (reduced.matches ? 0 : 1);
+  const pitch = fitted.pitch * progress + .033 * Math.sin(.8 * drift) * idle;
+  const bank = fitted.roll * progress + .058 * Math.sin(drift) * idle;
+  const cosPitch = Math.cos(pitch), sinPitch = Math.sin(pitch);
+  for (const plane of orbitPlanes) {
+    const {group, body, radius, minorRadius, roll, incline} = plane;
+    const angle = roll + bank;
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const sinIncline = Math.sin(incline), cosIncline = Math.cos(incline);
+    const across = {x: cos, y: sin * cosPitch, z: sin * sinPitch};
+    const forward = {
+      x: -sin * sinIncline,
+      y: cos * sinIncline * cosPitch - cosIncline * sinPitch,
+      z: cos * sinIncline * sinPitch + cosIncline * cosPitch,
+    };
+    const depth = Math.hypot(across.z, forward.z);
+    const q = radius * depth * inverseDistance;
+    const fade = body ? Math.max(0, Math.min(1, (.985 - q) / .13)) : 1;
+    if (plane.projection?.fade !== fade) group.setAttribute('opacity', fade);
+    plane.projection = {across, forward, inverseDistance, fade};
+    if (!fade) continue;
+
+    // A projected circle is an ellipse until it reaches the camera plane.
+    const a = forward.z / depth, b = across.z / depth;
+    const conic = 1 - q * q;
+    const width = 1 / Math.sqrt(conic);
+    const height = radius / (minorRadius * conic);
+    const offset = radius * q / conic;
+    const hx = across.x * a - forward.x * b, hy = across.y * a - forward.y * b;
+    const vx = across.x * b + forward.x * a, vy = across.y * b + forward.y * a;
+    const projection = `matrix(${hx * width} ${hy * width} ${vx * height} ${vy * height} ${vx * offset} ${vy * offset})`;
+    group.setAttribute('transform', projection);
+    if (group === rail) rearProjection.setAttribute('transform', projection);
+  }
+  const fieldScale = String(1.22 - .19 * progress);
+  if (depthFlight.style.getPropertyValue('--field-scale') !== fieldScale) {
+    depthFlight.style.setProperty('--field-scale', fieldScale);
+    depthFlight.style.setProperty('--camera-travel', progress);
+    dust.style.setProperty('--camera-travel', progress);
+  }
+  const focus = Math.max(0, (progress - .60) / .40);
+  const defocus = focus * focus * (3 - 2 * focus);
+  const scatter = Math.round(defocus * 100) / 100;
+  const reveal = defocus.toFixed(3);
+  if (stage.style.getPropertyValue('--work-reveal') !== reveal) {
+    stage.style.setProperty('--work-reveal', reveal);
+    deepSky.style.filter = scatter ? `blur(${scatter * 2.5}px)` : '';
+    setStarAccents(scatter);
+  }
+  drawPlanets();
+  placeOrbitPlanet(position);
+}
+
+function projectPoint(plane, cos, sin) {
+  const {across, forward, inverseDistance} = plane.projection;
+  const radius = plane.radius;
+  const zoom = 1 / (1 - radius * (across.z * cos + forward.z * sin) * inverseDistance);
+  return {
+    x: radius * (across.x * cos + forward.x * sin) * zoom,
+    y: radius * (across.y * cos + forward.y * sin) * zoom,
+    zoom,
+  };
+}
+
+function drawPlanets() {
+  for (const plane of orbitPlanes) {
+    const {body, bodyRadius, phase, period, projection} = plane;
+    if (!body) continue;
+    body.style.visibility = projection.fade ? '' : 'hidden';
+    if (!projection.fade) continue;
+    const angle = phase + orbitalTime * 2 * Math.PI / period;
+    const {x, y, zoom} = projectPoint(plane, Math.cos(angle), Math.sin(angle));
+    body.setAttribute('transform', `translate(${x} ${y})`);
+    body.setAttribute('r', bodyRadius * zoom);
+  }
+}
+
+function orbitPlanets(now) {
+  orbitalTime += Math.max(0, Math.min(50, now - lastOrbitalFrame)) / 1000;
+  lastOrbitalFrame = now;
+  drawGalaxy(framing);
+  orbitalFrame = requestAnimationFrame(orbitPlanets);
+}
+
+function cameraEase(progress, compensateDepth) {
+  const t = Math.max(0, Math.min(1, progress));
+  const ease = t ** 3 * (10 - 15 * t + 6 * t * t);
+  // Spread the apparent movement of the near arc across the approach.
+  return compensateDepth ? ease / (1 - .94 * fitted.depthRatio * (1 - ease)) : ease;
+}
+
+function moveGalaxy(destination, duration, finish, glideStart) {
+  cancelAnimationFrame(frameRequest);
+  const previous = glideStart === undefined ? framing : 0;
+  if (reduced.matches || previous === destination) {
+    drawGalaxy(destination);
+    finish?.();
+    return;
+  }
+  const start = glideStart ?? performance.now();
+  function move(now) {
+    const t = (now - start) / duration;
+    const ease = cameraEase(t, glideStart !== undefined);
+    drawGalaxy(previous + (destination - previous) * ease);
+    if (t < 1) frameRequest = requestAnimationFrame(move);
+    else finish?.();
+  }
+  frameRequest = requestAnimationFrame(move);
+}
+
+function placeOrbitPlanet(t) {
+  const {cos, sin} = railPoint((t - .5) * fitted.span / fitted.pixelScale);
+  const {x, y} = projectPoint(navigationPlane, cos, sin);
+  railCluster.setAttribute('transform', `translate(${x} ${y}) scale(${1 + .32 * framing})`);
+}
+
+measureFit();
+new ResizeObserver(measureFit).observe(stage);
+
+function choose(name) {
+  const destination = sections[name];
+  stage.dataset.selection = name;
+  for (const stop of stops) stop.setAttribute('aria-current', String(stop.dataset.target === name));
+  const browsing = stage.classList.contains('entered');
+  cards.inert = !browsing || stage.classList.contains('arriving') || name !== 'overview';
+  film.inert = !browsing || name !== 'film';
+  grade.inert = !browsing || name !== 'grade';
+  if (film.inert && !player.paused) player.pause();
+  syncArchive();
+  if (!grade.inert) queueArchive();
+  if (browsing) updatePlayback();
+  cancelAnimationFrame(animation);
+  if (!browsing) {
+    position = destination;
+    placeOrbitPlanet(position);
+    return;
+  }
+  if (position === destination) {
+    launchPendant();
+    return;
+  }
+  if (reduced.matches) {
+    position = destination;
+    placeOrbitPlanet(position);
+    launchPendant();
+    return;
+  }
+  const start = performance.now();
+  const previous = position;
+  function glide(now) {
+    const t = Math.min(1, (now - start) / 780);
+    const easing = t * t * (3 - 2 * t);
+    position = t < 1 ? previous + (destination - previous) * easing : destination;
+    placeOrbitPlanet(position);
+    if (t < 1) animation = requestAnimationFrame(glide);
+    else launchPendant();
+  }
+  animation = requestAnimationFrame(glide);
+}
+
+let archiveLoading = false;
+let archiveTimer = 0;
+let pendantFlight;
+let curtainAnimations = [];
+
+function moveNavigationCurtain({progress = 0, frames, options}) {
+  curtainAnimations.forEach(animation => animation.cancel());
+  curtainAnimations = [];
+  orbit.inert = !stage.classList.contains('entered') || stage.classList.contains('arriving') || Boolean(frames || progress);
+  for (const surface of [orbit, railVisuals, rearRail]) {
+    const height = stage.clientHeight / (surface === orbit ? 1 : fitted.pixelScale);
+    const pose = amount => `translateY(${amount * height}px)`;
+    surface.style.transform = pose(frames ? frames.at(-1).progress : progress);
+    if (frames) {
+      curtainAnimations.push(surface.animate(frames.map(({progress: amount, ...settings}) => ({
+        ...settings, transform: pose(amount),
+      })), options));
+    }
+  }
+}
+
+function launchPendant() {
+  if (grade.inert || position !== sections.grade) return;
+  const gallery = archive.contentDocument?.querySelector('#plastic-arc[data-frame]');
+  const pendant = gallery?.querySelector('.planet-pendant');
+  if (!pendant || pendant.hasAttribute('data-docked')) return;
+  if (!reduced.matches && (Number(getComputedStyle(grade).opacity) < .98 || Number(getComputedStyle(archive).opacity) < .98)) return;
+  const body = pendant.querySelector('.planet-body');
+  const source = pendantMoon.getBoundingClientRect();
+  const frame = archive.getBoundingClientRect();
+  const target = body.getBoundingClientRect();
+  const x = source.x + source.width / 2 - frame.x - target.x - target.width / 2;
+  const y = source.y + source.height / 2 - frame.y - target.y - target.height / 2;
+  pendant.dataset.docked = '';
+  pendantMoon.classList.add('departed');
+  if (reduced.matches) {
+    pendant.inert = false;
+    return;
+  }
+  pendant.dataset.docking = '';
+  const {a, b, c, d, e, f} = new DOMMatrixReadOnly(getComputedStyle(pendantMoon).transform);
+  const phase = (moonAnimations.at(-1)?.currentTime ?? 0) / moonCycle;
+  const next = satellitePoint(moonPaths.at(-1), phase + .012);
+  const dx = a * next.x + c * next.y - e;
+  const dy = b * next.x + d * next.y - f;
+  const lead = 25 / Math.max(.1, Math.hypot(dx, dy));
+  const fromScale = source.width / target.width;
+  const approachY = Math.min(58, y * .18);
+  const frames = Array.from({length: 25}, (_, step) => {
+    const time = step / 24;
+    const t = time * time * (3 - 2 * time) + .12 * time * (1 - time) ** 2;
+    const u = 1 - t;
+    const px = u ** 3 * x + 3 * u * u * t * (x + dx * lead) + 3 * u * t * t * (.14 * x);
+    const py = u ** 3 * y + 3 * u * u * t * (y + dy * lead) + 3 * u * t * t * approachY;
+    const scale = fromScale + (1 - fromScale) * t * t;
+    return {transform: `translate3d(${px}px,${py}px,0) scale(${scale})`};
+  });
+  const flight = body.animate(frames, {duration: dockDuration, fill: 'backwards'});
+  pendantFlight = flight;
+  flight.onfinish = () => {
+    if (pendantFlight !== flight) return;
+    delete pendant.dataset.docking;
+    pendant.inert = false;
+  };
+}
+
+for (const surface of [grade, archive]) {
+  surface.addEventListener('transitionend', event => {
+    if (event.target === surface && event.propertyName === 'opacity') launchPendant();
+  });
+}
+
+function queueArchive() {
+  if (archiveTimer || archiveLoading || archive.hasAttribute('srcdoc')) return;
+  const prepare = () => {
+    archiveTimer = 0;
+    if (stage.classList.contains('galaxy-ready')) loadArchive();
+  };
+  archiveTimer = setTimeout(() => {
+    if ('requestIdleCallback' in window) requestIdleCallback(prepare, {timeout: 500});
+    else prepare();
+  }, grade.inert ? 100 : 280);
+}
+function syncArchive() {
+  const gallery = archive.contentDocument?.getElementById('plastic-arc');
+  gallery?.toggleAttribute('data-active', !grade.inert);
+  if (!grade.inert) return;
+  const pendant = gallery?.querySelector('.planet-pendant[data-docked]');
+  if (!pendant) return;
+  pendantFlight?.cancel();
+  pendantFlight = undefined;
+  delete pendant.dataset.docking;
+  delete pendant.dataset.docked;
+  pendant.inert = true;
+  pendantMoon.classList.remove('departed');
+  gallery.dispatchEvent(new Event('dismiss-overview'));
+  moveNavigationCurtain({});
+}
+async function loadArchive() {
+  if (archive.hasAttribute('srcdoc') || archiveLoading) return;
+  archiveLoading = true;
+  archiveError.hidden = true;
+  try {
+    const portfolio = new URL('游星日志作品集/', location.href);
+    const responses = await Promise.all(['color.html', 'index.html'].map(path => fetch(new URL(path, portfolio))));
+    if (responses.some(response => !response.ok)) throw new Error('Archive unavailable');
+    const parser = new DOMParser();
+    const [page, journey] = await Promise.all(responses.map(async response => parser.parseFromString(await response.text(), 'text/html')));
+    const base = page.createElement('base');
+    base.href = portfolio.href;
+    page.head.prepend(base);
+    const sheet = page.createElement('link');
+    sheet.rel = 'stylesheet';
+    sheet.href = 'journey.css?v=10';
+    page.head.append(sheet);
+    const theme = page.createElement('style');
+    const pendantInk = getComputedStyle(stage).getPropertyValue('--pendant-ink');
+    theme.textContent = `
+      html { --site-gutter: clamp(22px, 5vw, 94px); --canvas-color: #0c0b0ff5;
+             --accent-color: ${pendantInk}; --ink-white: #fff; --muted-color: #fff; background: transparent; }
+      body { overflow: hidden; }
+      .embedded-orbit { min-height: 0; }
+      .embedded-orbit .project { top: 36%; }
+      .embedded-orbit footer { bottom: max(119px, 20vh); }
+      .embedded-orbit .overview { padding: max(100px, 15vh) 5vw max(130px, 19vh); }
+      .embedded-orbit .stage > div { mask-image: linear-gradient(0deg, transparent, #000 16%, #000 88%, transparent); }
+      .planet-pendant .planet-cord { background: linear-gradient(#b6cbdf12, #b6cbdfbc); }
+      .planet-pendant .planet-body { background: var(--accent-color); }
+      .planet-pendant .planet-body::after { border-color: #c9d8eb; }
+      .planet-pendant:not([data-docked]) { visibility: hidden; }
+      .planet-pendant .planet-cord, .planet-pendant .planet-body::after { transition: opacity .25s ease; }
+      .planet-pendant[data-docking] .planet-cord, .planet-pendant[data-docking] .planet-body::after {
+        animation: pendant-catch ${dockDuration * .24}ms ease-out ${dockDuration * .76}ms both;
+      }
+      @keyframes pendant-catch { from { opacity: 0; } to { opacity: 1; } }
+      .planet-pendant:is(:hover, :focus-visible):not([data-pulling]) .planet-body { outline: none; box-shadow: none; background: #e5c2ac; }
+      @media (max-width: 690px) { .embedded-orbit .project { top: 60%; } }
+    `;
+    page.head.append(theme);
+    const contents = page.querySelector('#plastic-arc');
+    contents.classList.add('embedded-orbit');
+    contents.setAttribute('data-linear', '');
+    contents.toggleAttribute('data-active', !grade.inert);
+    page.querySelector('script[type="module"][src^="color-motion.js"]').src = 'color-motion.js?v=moon-curtain';
+    contents.querySelector('.topbar').remove();
+    contents.querySelector('.dial').remove();
+    contents.querySelector('footer > p').remove();
+    contents.querySelector('.position').hidden = true;
+    const grid = contents.querySelector('.overview');
+    grid.id = 'color-overview';
+    const world = page.createElement('div');
+    world.className = 'orbit-world';
+    world.append(...[...contents.children].filter(element => element !== grid));
+    contents.prepend(world);
+    const pendant = journey.querySelector('#pendant-template').content.cloneNode(true);
+    pendant.querySelector('button').inert = true;
+    contents.append(pendant);
+    archive.srcdoc = '<!doctype html>' + page.documentElement.outerHTML;
+  } catch (error) {
+    console.error(error);
+    archiveError.hidden = false;
+  } finally {
+    archiveLoading = false;
+  }
+}
+archiveError.addEventListener('click', loadArchive);
+archive.addEventListener('load', () => {
+  syncArchive();
+  const gallery = archive.contentDocument?.getElementById('plastic-arc');
+  if (gallery) {
+    gallery.addEventListener('curtain-motion', event => {
+      if (!grade.inert) moveNavigationCurtain(event.detail);
+    });
+    const reveal = () => {
+      if (!gallery.hasAttribute('data-frame') && !gallery.hasAttribute('data-error')) return;
+      grade.classList.add('ready');
+      observer.disconnect();
+      launchPendant();
+    };
+    const observer = new MutationObserver(reveal);
+    observer.observe(gallery, {attributeFilter: ['data-frame', 'data-error']});
+    reveal();
+  }
+  archive.contentDocument?.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || grade.inert ||
+        archive.contentDocument.querySelector('#plastic-arc[data-selected], .overview[open]')) return;
+    event.preventDefault();
+    choose('overview');
+    stops[1].focus({preventScroll: true, focusVisible: false});
+  }, {capture: true});
+});
+
+function showGalaxy(keyboard = false) {
+  const fromNebula = !stage.classList.contains('galaxy-ready');
+  stage.classList.remove('entered', 'arriving');
+  stage.classList.add('galaxy-ready');
+  enter.inert = false;
+  enter.setAttribute('aria-label', '进入星系');
+  orbit.inert = true;
+  choose('overview');
+  if (fromNebula) jumpFromNebula(glideStart => enterWorks(keyboard, glideStart));
+  else moveGalaxy(0, 1000, updatePlayback);
+  updatePlayback();
+}
+
+function enterWorks(keyboard, glideStart) {
+  if (stage.classList.contains('jumping') || stage.classList.contains('entered')) return;
+  stage.classList.add('entered', 'arriving');
+  enter.inert = true;
+  choose('overview');
+  moveGalaxy(1, glideStart === undefined ? 1360 : approachGlideDuration, () => {
+    stage.classList.remove('arriving');
+    cards.inert = stage.dataset.selection !== 'overview';
+    orbit.inert = false;
+    if (keyboard) stops[1].focus({preventScroll: true});
+    queueArchive();
+  }, glideStart);
+}
+function reset(keyboard) {
+  if (!stage.classList.contains('galaxy-ready')) return;
+  afterJump = undefined;
+  finishJump();
+  moveGalaxy(0, 1000);
+  stage.classList.remove('entered', 'arriving', 'galaxy-ready');
+  enter.inert = false;
+  enter.setAttribute('aria-label', '进入星云');
+  cards.inert = true;
+  orbit.inert = true;
+  choose('overview');
+  if (keyboard) enter.focus({preventScroll: true});
+  updatePlayback();
+  if (zoomPass === undefined && openingPoster.complete) scheduleZoomWarmup();
+}
+
+enter.addEventListener('click', event => {
+  if (stage.classList.contains('galaxy-ready')) enterWorks(event.detail === 0);
+  else showGalaxy(event.detail === 0);
+});
+document.querySelector('.brand').addEventListener('click', event => reset(event.detail === 0));
+for (const action of document.querySelectorAll('[data-target]')) {
+  action.addEventListener('click', () => choose(action.dataset.target));
+}
+window.addEventListener('keydown', event => {
+  const browsing = stage.classList.contains('entered');
+  if (event.key === 'Escape') {
+    if (browsing && stage.dataset.selection !== 'overview') choose('overview');
+    else if (browsing) {
+      showGalaxy();
+      enter.focus({preventScroll: true});
+    } else reset(true);
+    return;
+  }
+  if (!browsing || orbit.inert) return;
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    const index = stops.findIndex(stop => stop.dataset.target === stage.dataset.selection);
+    const next = stops[index + (event.key === 'ArrowLeft' ? -1 : 1)];
+    if (next) {
+      event.preventDefault();
+      choose(next.dataset.target);
+    }
+  }
+});
+let nebulaWatch = 0;
+let nebulaRecovery = false;
+function recoverNebula() {
+  if (nebulaRecovery || reduced.matches || document.hidden || stage.classList.contains('galaxy-ready')) return;
+  nebulaRecovery = true;
+  // The local preview may serve the MP4 as a full response when the media engine requests a byte range.
+  fetch(video.src).then(response => {
+    if (!response.ok) throw new Error('Nebula video unavailable');
+    return response.blob();
+  }).then(blob => {
+    const time = video.currentTime;
+    video.src = URL.createObjectURL(blob);
+    if (time) video.currentTime = time;
+    updatePlayback();
+  }).catch(() => {});
+}
+video.addEventListener('error', recoverNebula);
+video.addEventListener('stalled', updatePlayback);
+
+function updatePlayback() {
+  const visible = stage.classList.contains('galaxy-ready');
+  updateStarMotion();
+  const animate = visible && !reduced.matches && framing === 0 &&
+    !stage.classList.contains('entered') && !stage.classList.contains('jumping');
+  if (animate && !orbitalFrame) {
+    lastOrbitalFrame = performance.now();
+    orbitalFrame = requestAnimationFrame(orbitPlanets);
+  } else if (!animate && orbitalFrame) {
+    cancelAnimationFrame(orbitalFrame);
+    orbitalFrame = 0;
+  }
+  const playNebula = !reduced.matches && !document.hidden && (!visible || stage.classList.contains('jumping'));
+  video.autoplay = playNebula;
+  if (!playNebula) {
+    clearTimeout(nebulaWatch);
+    nebulaWatch = 0;
+    if (!video.paused) video.pause();
+    return;
+  }
+  if (video.paused) video.play().catch(() => {});
+  if (!visible && !nebulaWatch && !nebulaRecovery) {
+    const time = video.currentTime;
+    nebulaWatch = setTimeout(() => {
+      nebulaWatch = 0;
+      if (Math.abs(video.currentTime - time) < .06) recoverNebula();
+    }, 1250);
+  }
+}
+reduced.addEventListener('change', () => {
+  if (reduced.matches) finishJump();
+  else if (zoomPass === undefined && openingPoster.complete) scheduleZoomWarmup();
+  updatePlayback();
+  placeSatellites();
+  launchPendant();
+});
+updatePlayback();
+</script>
+</body>
+</html>

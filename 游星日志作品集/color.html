@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <title>调色 · 游星日志</title>
+  <link rel="stylesheet" href="color.css?v=10">
+  <script type="module" src="color-motion.js?v=29"></script>
+</head>
+<body>
+  <main id="plastic-arc" class="orbit-page" tabindex="-1">
+    <div class="stage" aria-hidden="true"></div>
+    <div class="dial" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>游星日志</a>
+      <nav aria-label="作品集">
+        <a href="./#film">短片</a>
+        <a href="color.html" aria-current="page">调色</a>
+        <a href="./#profile">关于</a>
+      </nav>
+    </header>
+    <div class="project">
+      <p class="position"><span class="number">01</span> / <span class="total"></span></p>
+      <h1><button class="current" data-action="view" type="button"></button></h1>
+    </div>
+    <div class="status" role="status">正在加载调色作品…</div>
+    <footer>
+      <p>陈折一 · 调色作品 <span class="overview-hint">双击空白平铺</span></p>
+      <div class="controls" aria-label="切换作品">
+        <button class="key prev" type="button" data-action="prev" aria-label="上一部"></button>
+        <button class="key next" type="button" data-action="next" aria-label="下一部"></button>
+      </div>
+    </footer>
+    <dialog class="overview" aria-label="全部调色练习">
+      <div class="overview-grid"></div>
+    </dialog>
+  </main>
+</body>
+</html>
