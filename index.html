@@ -10,9 +10,8 @@
 :root {
   color-scheme: dark;
   --ink: #fff;
-  --orbit-ink: #b5c9e0;
+  --orbit-ink: #dbe2eb;
   --orbit-width: 1.3px;
-  --nebula-warm: #deb49c;
   --nebula-exposure: 1.18;
   --pendant-ink: #d5ad93;
   --ease: cubic-bezier(.22,.74,.22,1);
@@ -43,8 +42,9 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 .entered:not(.arriving) .dust { opacity: .78; }
 .entered:is([data-selection="film"], [data-selection="grade"]) .dust { opacity: .45; }
 .galaxy-ready .depth-flight {
-  transform: translate3d(calc(2.2% * var(--camera-travel, 0)), calc(-2.1% * var(--camera-travel, 0)), 0)
-             scale(calc(var(--field-scale, 1.22) * var(--approach-scale, 1)));
+  transform: translate3d(calc(4.4% * var(--camera-travel, 0)), calc(-3.4% * var(--camera-travel, 0)), 0)
+             rotate(calc(-7deg * var(--camera-travel, 0)))
+             scale(calc(var(--field-scale, 1.16) * var(--approach-scale, 1)));
 }
 .deep-sky {
   position: absolute;
@@ -82,17 +82,16 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 .jumping .depth-flight, .jumping .system, .arriving .system {
   will-change: transform, opacity;
 }
-.planet-orbit { fill: none; stroke: #8298b3; stroke-width: .7px; }
-[data-planet="grade"] .planet-orbit { stroke: #95aac3; stroke-width: .9px; }
+.planet-orbit { fill: none; stroke: var(--orbit-ink); stroke-width: .65px; vector-effect: non-scaling-stroke; opacity: .48; }
+[data-planet="grade"] .planet-orbit { stroke-width: .8px; opacity: .7; }
 .planet-orbit .far-side { opacity: .20; }
 .planet-orbit .near-side { opacity: .54; stroke-dasharray: 50 50; stroke-dashoffset: 50; }
 .system :is(.planet, .planet-orbit) { transition: opacity .8s ease; }
-.system .planet[data-flight="film"] { fill: #60738c; opacity: calc(.78 * var(--planet-reveal, 1)); }
-.system .planet[data-flight="grade"] { fill: #8299b5; opacity: calc(.86 * var(--planet-reveal, 1)); }
+.system .planet[data-flight="grade"] { fill: #7b8b9e; opacity: calc(.86 * var(--planet-reveal, 1)); }
 .navigation-cluster { opacity: var(--planet-reveal, 1); }
 .entered .system .planet-orbit,
 .entered .system .planet[data-flight] { opacity: 0; transition-delay: .38s; }
-.system-core { opacity: calc(.83 * var(--sun-reveal, 1) * (1 - var(--work-reveal, 0))); }
+.system-core { opacity: calc(var(--sun-reveal, 1) * (1 - var(--work-reveal, 0))); }
 .navigation-track, .navigation-sheen, .navigation-rear-track {
   fill: none;
   stroke: var(--orbit-ink);
@@ -120,7 +119,7 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 .rail-ink { stop-color: var(--orbit-ink); }
 .rail-rear { transition: stop-opacity .8s ease .35s; }
 .entered .rail-rear { stop-opacity: 0; }
-.navigation-disc { fill: #c6d7e9; }
+.navigation-disc { fill: #a9c1d8; }
 .navigation-meridian {
   fill: none;
   stroke: #587c9e;
@@ -145,6 +144,7 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 .moon-track:last-child { stroke: var(--pendant-ink); stroke-width: .8px; opacity: .5; transition: opacity .42s ease; }
 .navigation-cluster:has(.departed) .moon-track:last-child { opacity: .2; }
 .navigation-moon { pointer-events: none; }
+:is(.moon-tracks, .navigation-moon) { opacity: var(--work-reveal, 0); }
 .navigation-moon[data-pendant-moon] { fill: var(--pendant-ink); }
 .navigation-moon.departed { visibility: hidden; }
 .galaxy-ready .nebula { --nebula-zoom: 1.65; opacity: 0; }
@@ -445,7 +445,7 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 <body>
 <main class="stage" id="stage" data-selection="overview">
   <div class="sky" aria-hidden="true">
-    <div class="depth-flight"><img class="deep-sky" src="entry-deep-sky.jpg" alt="" decoding="async"></div>
+    <div class="depth-flight"><img class="deep-sky" src="galaxy-interior.jpg" alt="" decoding="async"></div>
     <video class="nebula" src="galaxy-core-flow-preview.mp4" poster="galaxy-opening.jpg"
            autoplay loop muted playsinline preload="auto"></video>
     <canvas class="dust"></canvas>
@@ -459,26 +459,34 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
           <stop class="rail-ink rail-rear" offset="54%" stop-opacity=".55"/>
           <stop class="rail-ink" offset="84%"/>
         </linearGradient>
+        <radialGradient id="core-light">
+          <stop stop-color="#f5c49a" stop-opacity=".54"/>
+          <stop offset="44%" stop-color="#dda07b" stop-opacity=".16"/>
+          <stop offset="100%" stop-color="#dda07b" stop-opacity="0"/>
+        </radialGradient>
         <clipPath id="navigation-face"><circle r="8"/></clipPath>
         <clipPath id="orbit-front"><rect x="-300" y="0" width="600" height="72"/></clipPath>
         <clipPath id="orbit-back"><rect x="-300" y="-72" width="600" height="72"/></clipPath>
       </defs>
-      <circle class="system-core" r="22" fill="var(--nebula-warm)"/>
+      <g class="system-core">
+        <circle r="19" fill="url(#core-light)"/>
+        <circle r="5.5" fill="#ffe4c8"/>
+      </g>
       <g class="system-orbits">
-        <g data-orbit-roll="-17" data-planet="film" data-phase="-2.64" data-period="44" transform="rotate(-17)">
+        <g data-orbit-roll="11" transform="rotate(11)">
           <g class="planet-orbit">
             <use href="#outer-path" class="far-side"/>
             <use href="#outer-path" class="near-side"/>
           </g>
         </g>
-        <g data-orbit-roll="-7" data-planet="grade" data-phase=".28" data-period="37" transform="rotate(-7)">
+        <g data-orbit-roll="19" data-planet="grade" data-phase="-2.24" data-period="37" transform="rotate(19)">
           <g class="planet-orbit">
             <use href="#middle-path" class="far-side"/>
             <use href="#middle-path" class="near-side"/>
           </g>
         </g>
         <g class="rail-visuals">
-          <g class="navigation-orbit" data-orbit-roll="-2" transform="rotate(-2)">
+          <g class="navigation-orbit" data-orbit-roll="17" transform="rotate(17)">
             <use href="#inner-path" class="navigation-track"/>
             <use href="#inner-path" class="navigation-sheen"/>
           </g>
@@ -502,8 +510,7 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
             <circle class="navigation-moon" data-pendant-moon/>
           </g>
         </g>
-        <circle class="planet" data-flight="film" r="12"/>
-        <circle class="planet" data-flight="grade" r="20"/>
+        <circle class="planet" data-flight="grade" r="7"/>
       </g>
     </svg>
     <svg class="orbit-underlay" viewBox="-600 -337.5 1200 675">
@@ -688,7 +695,7 @@ function jumpFromNebula(onArrival) {
     if (connected) {
       const {orbitOpening} = frame;
       systemOrbits.style.opacity = frame.orbitOpacity;
-      systemOrbits.setAttribute('transform', `rotate(${-14 * (1 - orbitOpening)}) scale(1 ${.29 + .71 * orbitOpening})`);
+      systemOrbits.setAttribute('transform', `rotate(${-4 * (1 - orbitOpening)}) scale(1 ${.68 + .32 * orbitOpening})`);
       systemOrbits.style.setProperty('--trace-settle', orbitOpening);
       systemOrbits.style.setProperty('--inner-trace', frame.innerTrace);
       const drawn = frame.innerTrace / 100;
@@ -845,7 +852,7 @@ function drawGalaxy(progress) {
   const bank = fitted.roll * progress + .058 * Math.sin(drift) * idle;
   const cosPitch = Math.cos(pitch), sinPitch = Math.sin(pitch);
   for (const plane of orbitPlanes) {
-    const {group, body, radius, minorRadius, roll, incline} = plane;
+    const {group, radius, minorRadius, roll, incline} = plane;
     const angle = roll + bank;
     const cos = Math.cos(angle), sin = Math.sin(angle);
     const sinIncline = Math.sin(incline), cosIncline = Math.cos(incline);
@@ -857,7 +864,7 @@ function drawGalaxy(progress) {
     };
     const depth = Math.hypot(across.z, forward.z);
     const q = radius * depth * inverseDistance;
-    const fade = body ? Math.max(0, Math.min(1, (.985 - q) / .13)) : 1;
+    const fade = group !== rail ? Math.max(0, Math.min(1, (.985 - q) / .13)) : 1;
     if (plane.projection?.fade !== fade) group.setAttribute('opacity', fade);
     plane.projection = {across, forward, inverseDistance, fade};
     if (!fade) continue;
@@ -874,7 +881,7 @@ function drawGalaxy(progress) {
     group.setAttribute('transform', projection);
     if (group === rail) rearProjection.setAttribute('transform', projection);
   }
-  const fieldScale = String(1.22 - .19 * progress);
+  const fieldScale = String(1.16 + .09 * progress);
   if (depthFlight.style.getPropertyValue('--field-scale') !== fieldScale) {
     depthFlight.style.setProperty('--field-scale', fieldScale);
     depthFlight.style.setProperty('--camera-travel', progress);
@@ -948,8 +955,10 @@ function moveGalaxy(destination, duration, finish, glideStart) {
 }
 
 function placeOrbitPlanet(t) {
-  const {cos, sin} = railPoint((t - .5) * fitted.span / fitted.pixelScale);
-  const {x, y} = projectPoint(navigationPlane, cos, sin);
+  const stop = railPoint((t - .5) * fitted.span / fitted.pixelScale);
+  const startAngle = .72 + .13 * Math.sin(orbitalTime * .28);
+  const angle = startAngle + (Math.atan2(stop.sin, stop.cos) - startAngle) * framing;
+  const {x, y} = projectPoint(navigationPlane, Math.cos(angle), Math.sin(angle));
   railCluster.setAttribute('transform', `translate(${x} ${y}) scale(${1 + .32 * framing})`);
 }
 
