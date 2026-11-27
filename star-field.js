@@ -25,7 +25,6 @@ export function createStarField(canvas) {
       dx: (random() - .6) * (bright ? 90 : 40),
       dy: (random() - .45) * (bright ? 78 : 30),
       rays: index % 25 === 0,
-      bloom: index % 10 === 5,
       bright,
     };
   });
@@ -76,12 +75,9 @@ export function createStarField(canvas) {
       const opacity = star.brightness * fade * (low + (1 - low) * shimmer ** 1.7);
       const x = star.x * width + (life - .5) * star.dx;
       const y = star.y * height + (life - .5) * star.dy;
-      const bloom = star.bloom ? accents * shimmer : 0;
-      const glow = star.bright && opacity > .35 ? .8 : 0;
-      const haloOpacity = Math.max(glow, bloom * .9, star.bright ? accents * .76 : 0);
-      if (haloContext && haloOpacity > .04) {
-        const radius = star.size * (3.9 + 1.8 * accents) + 3.9 * bloom;
-        context.globalAlpha = opacity * haloOpacity;
+      if (haloContext && star.bright && opacity > .35) {
+        const radius = star.size * 3.9;
+        context.globalAlpha = opacity * .8;
         context.drawImage(halo, x - radius, y - radius, 2 * radius, 2 * radius);
       }
       if (glintContext && star.rays && accents > 0) {
@@ -89,7 +85,7 @@ export function createStarField(canvas) {
         context.globalAlpha = opacity * accents * (.3 + .7 * shimmer ** 2);
         context.drawImage(glint, x - radius, y - radius, radius * 2, radius * 2);
       }
-      context.globalAlpha = opacity * (1 - .49 * accents);
+      context.globalAlpha = opacity;
       context.fillStyle = star.tone;
       context.beginPath();
       context.arc(x, y, star.size * (.88 + .12 * shimmer), 0, 2 * Math.PI);

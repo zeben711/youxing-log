@@ -544,7 +544,7 @@ button:focus-visible, a:focus-visible { outline: none; color: #fff; }
 </main>
 <script type="module">
 import {createZoomPass, sampleZoom, zoomProfiles} from './zoom-transition.js?v=live-nebula';
-import {createStarField} from './star-field.js?v=orbital-focus';
+import {createStarField} from './star-field.js?v=clear-sky';
 
 const stage = document.querySelector('#stage');
 const enter = document.querySelector('.enter');
@@ -880,14 +880,11 @@ function drawGalaxy(progress) {
     depthFlight.style.setProperty('--camera-travel', progress);
     dust.style.setProperty('--camera-travel', progress);
   }
-  const focus = Math.max(0, (progress - .60) / .40);
-  const defocus = focus * focus * (3 - 2 * focus);
-  const scatter = Math.round(defocus * 100) / 100;
-  const reveal = defocus.toFixed(3);
+  const revealProgress = Math.max(0, (progress - .60) / .40);
+  const reveal = (revealProgress * revealProgress * (3 - 2 * revealProgress)).toFixed(3);
   if (stage.style.getPropertyValue('--work-reveal') !== reveal) {
     stage.style.setProperty('--work-reveal', reveal);
-    deepSky.style.filter = scatter ? `blur(${scatter * 2.5}px)` : '';
-    setStarAccents(scatter);
+    setStarAccents(Math.round(Number(reveal) * 100) / 100);
   }
   drawPlanets();
   placeOrbitPlanet(position);
